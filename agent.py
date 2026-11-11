@@ -16,8 +16,10 @@ hãy mô tả khái quát mà không lặp lại chuỗi hoặc payload đó.'''
 
 def run_agent(question, provider, tools, max_steps=6):
     """Run the model/tool loop and return status, answer, trace, and usage."""
+    tool_schemas = getattr(tools, 'schemas', SCHEMAS)
+    tool_system_prompt = getattr(tools, 'system_prompt', SYSTEM_PROMPT)
     messages = [
-        {'role': 'system', 'content': SYSTEM_PROMPT},
+        {'role': 'system', 'content': tool_system_prompt},
         {'role': 'user', 'content': question},
     ]
     trace = []
@@ -33,7 +35,7 @@ def run_agent(question, provider, tools, max_steps=6):
 
     for step in range(1, max_steps + 1):
         try:
-            response = provider.complete(messages, SCHEMAS)
+            response = provider.complete(messages, tool_schemas)
         except Exception as exc:
             trace.append({'event': 'provider_error', 'step': step, 'error': type(exc).__name__})
             return {
