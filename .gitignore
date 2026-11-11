@@ -1,4 +1,12 @@
+# Local credentials and environment files. Keep the safe template tracked.
 .env
+.env.*
+!.env.example
+.secrets
+secrets.*
+*.pem
+*.key
+
 .venv/
 __pycache__/
 *.pyc

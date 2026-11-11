@@ -1,8 +1,35 @@
 """Bốn provider cùng một interface. Không chứa agent loop."""
 import json
 import os
+from pathlib import Path
 import urllib.error
 import urllib.request
+
+
+def _load_dotenv():
+    """Load project .env defaults without overriding the process environment."""
+    env_path = Path(__file__).with_name('.env')
+    try:
+        lines = env_path.read_text(encoding='utf-8').splitlines()
+    except FileNotFoundError:
+        return
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        if line.startswith('export '):
+            line = line[7:].lstrip()
+        name, separator, value = line.partition('=')
+        name = name.strip()
+        if not separator or not name or not name.replace('_', 'a').isalnum() or name[0].isdigit():
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+            value = value[1:-1]
+        os.environ.setdefault(name, value)
+
+
+_load_dotenv()
 
 CONFIG = {
     'openai': ('OPENAI_API_KEY', 'https://api.openai.com/v1/chat/completions'),
@@ -47,7 +74,13 @@ class Provider:
         payload = {'model': self.model, 'messages': messages}
         if schemas:
             payload['tools'] = schemas
-        data = post_json(self.url, {'Authorization': f'Bearer {self.key}'}, payload)
+        headers = {'Authorization': f'Bearer {self.key}'}
+        if self.name == 'openrouter':
+            if os.getenv('OPENROUTER_HTTP_REFERER'):
+                headers['HTTP-Referer'] = os.environ['OPENROUTER_HTTP_REFERER']
+            if os.getenv('OPENROUTER_APP_TITLE'):
+                headers['X-Title'] = os.environ['OPENROUTER_APP_TITLE']
+        data = post_json(self.url, headers, payload)
         choice = data['choices'][0]
         message = choice['message']
         calls = [{'id': c['id'], 'name': c['function']['name'], 'arguments': c['function']['arguments']} for c in message.get('tool_calls', [])]
